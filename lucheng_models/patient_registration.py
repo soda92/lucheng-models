@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, Column, String, Float, DateTime, func, Dat
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.mysql import BIGINT
-from datetime import datetime
+from dateutil.parser import parse
 
 Base = declarative_base()
 
@@ -43,6 +43,7 @@ class PatientRegistration(Base):
     签约医生姓名 = Column(String(50), comment='签约医生姓名')
     签约来源 = Column(String(100), comment='签约来源渠道')
     就诊日期 = Column(Date, comment='就诊日期')
+    institution_name = Column(String(100), comment='机构名称')
 
     __table_args__ = (
         {'mysql_engine': 'InnoDB',
@@ -51,7 +52,7 @@ class PatientRegistration(Base):
     )
 
 
-def save_or_update_patient_record(data: dict, result: dict, db_url: str):
+def save_or_update_patient_record(data: dict, result: dict, db_url: str, institution_name: str = None):
     """
     保存或更新患者挂号记录，包含新增的签约建档信息
 
@@ -66,30 +67,21 @@ def save_or_update_patient_record(data: dict, result: dict, db_url: str):
     session = Session()
 
     try:
-        # 转换基础数据类型
-        data['挂号时间'] = datetime.strptime(data['挂号时间'], '%Y-%m-%d %H:%M:%S')
-        data['现金'] = float(data['现金'])
-        data['性别'] = '男' if data['性别'] == '男' else '女'
-
         # 转换结果数据类型
         # 处理日期字段
-        for date_field in ['档案创建时间', '签约日期', '首次签约日期', '就诊日期']:
-            if result.get(date_field) and result[date_field].strip():
-                try:
-                    # 尝试不同的日期格式
-                    if len(result[date_field]) == 10:  # YYYY-MM-DD
-                        result[date_field] = datetime.strptime(result[date_field], '%Y-%m-%d')
-                    else:  # 带时间的格式
-                        result[date_field] = datetime.strptime(result[date_field], '%Y-%m-%d %H:%M:%S')
-                except ValueError:
-                    result[date_field] = None
-            else:
+        for date_field in ['挂号时间', '档案创建时间', '签约日期', '首次签约日期', '就诊日期']:
+            if not (result.get(date_field) and result[date_field].strip()):
+                result[date_field] = None
+                continue
+
+            try:
+                result[date_field] = parse(result[date_field].strip())
+            except ValueError:
                 result[date_field] = None
 
         # 处理空值
         for field in ['是否本机构建档', '是否外机构建档', '是否本机构签约', '是否外机构签约']:
-            if result.get(field) not in ['是', '否']:
-                result[field] = None
+            result[field] = result.get(field) if result.get(field) in ['是', '否'] else None
 
         # 查询是否存在匹配记录
         existing_record = session.query(PatientRegistration).filter(
@@ -98,6 +90,9 @@ def save_or_update_patient_record(data: dict, result: dict, db_url: str):
             PatientRegistration.诊疗医生 == data['诊疗医生'],
             PatientRegistration.registration_time == data['挂号时间']
         ).first()
+
+        for field in ['现金', '诊疗费', '挂号费', '基金']:
+            data[field] = float(data.get(field, 0.0)) if data.get(field) not in [None, ''] else None
 
         # 准备数据字典 - 基础数据
         record_data = {
@@ -114,9 +109,9 @@ def save_or_update_patient_record(data: dict, result: dict, db_url: str):
             'registration_doctor': data['挂号医生'] if data.get('挂号医生') else '未选择',
             'registration_type': data['挂号类型'],
             'registration_time': data['挂号时间'],
-            'consultation_fee': float(data.get('诊疗费', 0.0)),
-            'registration_fee': float(data.get('挂号费', 0.0)),
-            'fund': float(data['基金']) if data.get('基金') and data['基金'] != '' else None,
+            'consultation_fee': data['诊疗费'],
+            'registration_fee': data['挂号费'],
+            'fund': data['基金'],
             'cash': data['现金'],
             '诊疗医生': data['诊疗医生']
         }
@@ -135,6 +130,8 @@ def save_or_update_patient_record(data: dict, result: dict, db_url: str):
             '签约来源': result.get('签约来源'),
             '就诊日期': result.get('就诊日期')
         })
+
+        record_data['institution_name'] = institution_name if institution_name else '未知机构'
 
         # 处理空值诊断信息
         if record_data['diagnosis'] is None or record_data['diagnosis'] == '':
