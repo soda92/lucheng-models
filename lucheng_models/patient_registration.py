@@ -8,7 +8,7 @@ Base = declarative_base()
 
 
 class PatientRegistration(Base):
-    __tablename__ = 'patient_registration'
+    __tablename__ = 'patient_registration_view'
 
     id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True, comment='主键ID')
     name = Column(String(50), nullable=False, comment='姓名')
