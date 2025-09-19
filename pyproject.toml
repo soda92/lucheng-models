@@ -1,6 +1,6 @@
 [project]
 name = "lucheng-models"
-version = "2025.9.19.1"
+version = "2025.9.19.2"
 description = "潞城数据库模型"
 readme = "README.md"
 requires-python = ">=3.12"

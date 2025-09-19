@@ -13,7 +13,7 @@ class HealthRecord(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     total_records = Column(Integer, nullable=False, default=0, comment='总建档人数')
     total_signed = Column(Integer, nullable=False, default=0, comment='总签约人数')  # 新增字段
-    children_0_6_signed = Column(Integer, nullable=False, default=0, comment='0-6周岁儿童签约人数')
+    childrenSigned = Column(Integer, nullable=False, default=0, comment='0-6周岁儿童签约人数')
     pregnant_women_signed = Column(Integer, nullable=False, default=0, comment='孕产妇签约人数')
     disabled_signed = Column(Integer, nullable=False, default=0, comment='残疾人签约人数')
     elderly_signed = Column(Integer, nullable=False, default=0, comment='老年人签约人数')
